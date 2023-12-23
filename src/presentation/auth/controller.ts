@@ -1,6 +1,14 @@
 import { Request, Response } from 'express';
-import { CustomError, RegisterUserDto } from '../../domain';
+import {
+  CustomError,
+  LoginUser,
+  RegisterUser,
+  RegisterUserDto,
+} from '../../domain';
 import { AuthRepository } from '../../domain/repositories/auth.repository';
+import { JwtAdapter } from '../../config';
+import { UserModel } from '../../data/mongodb';
+import { LoginUserDto } from '../../domain/dtos/auth/login-user.dto';
 
 export class AuthController {
   constructor(private readonly authRepository: AuthRepository) {}
@@ -19,22 +27,41 @@ export class AuthController {
   // my use cases
   registerUser = (req: Request, res: Response) => {
     const [error, registerUserDto] = RegisterUserDto.create(req.body);
+
     if (error) {
       return res.status(400).json({ error });
     }
 
-    this.authRepository
-      .register(registerUserDto!)
-      .then((user) => {
-        res.json({ user });
-      })
+    new RegisterUser(this.authRepository)
+      .execute(registerUserDto!)
+      .then((data) => res.json(data))
       .catch((error) => this.handleError(error, res));
   };
 
   loginUser = (req: Request, res: Response) => {
-    console.log(req.body);
-    res.json({
-      message: 'Login controller route',
-    });
+    const [error, loginUserDto] = LoginUserDto.login(req.body);
+    if (error) {
+      return res.status(400).json({ error });
+    }
+
+    new LoginUser(this.authRepository)
+      .execute(loginUserDto!)
+      .then((data) => res.json(data))
+      .catch((error) => this.handleError(error, res));
+  };
+
+  getUsers = (req: Request, res: Response) => {
+    UserModel.find()
+      .then((users) =>
+        res.json({
+          // users,
+          user: req.body.user,
+        })
+      )
+      .catch((error) =>
+        res.json({
+          error: 'Internal server error',
+        })
+      );
   };
 }

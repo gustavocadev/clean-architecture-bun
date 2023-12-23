@@ -1,11 +1,9 @@
-import { compareSync, genSalt, hashSync } from 'bcryptjs';
-
 export class BcryptAdapter {
-  static hash(password: string): string {
-    return hashSync(password);
+  static async hash(password: string): Promise<string> {
+    return await Bun.password.hash(password);
   }
 
-  static compare(password: string, hashed: string): boolean {
-    return compareSync(password, hashed);
+  static async compare(password: string, hashed: string): Promise<boolean> {
+    return await Bun.password.verify(password, hashed);
   }
 }

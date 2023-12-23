@@ -7,9 +7,10 @@ import {
   RegisterUserDto,
   UserEntity,
 } from '../../domain';
+import { LoginUserDto } from '../../domain/dtos/auth/login-user.dto';
 
-type HashFunction = (password: string) => string;
-type CompareFunction = (password: string, hashed: string) => boolean;
+type HashFunction = (password: string) => Promise<string>;
+type CompareFunction = (password: string, hashed: string) => Promise<boolean>;
 
 // Es la implementacion porque aqui es donde usaremos los metodos de la libreria de base de datos, tambien se puede usar para injectar dependencias como el hash y el compare
 export class AuthDatasourceImpl implements AuthDatasource {
@@ -33,13 +34,39 @@ export class AuthDatasourceImpl implements AuthDatasource {
       const user = await UserModel.create({
         email,
         name,
-        password: this.hashPassword(password),
+        password: await this.hashPassword(password),
       });
 
       await user.save();
 
       // 3. Mapping the answer from the database to the entity
       // todo: aqui falta un mapper
+
+      return UserMapper.userEntityFromObject(user);
+    } catch (error) {
+      if (error instanceof CustomError) {
+        throw error;
+      }
+
+      throw CustomError.internalServerError();
+    }
+  }
+
+  async login(loginUserDto: LoginUserDto): Promise<UserEntity> {
+    const { email, password } = loginUserDto;
+
+    try {
+      // find user
+      const user = await UserModel.findOne({ email });
+      if (!user) {
+        throw CustomError.badRequest('Email not registered');
+      }
+
+      // validate password
+      const isValid = await this.comparePassword(password, user.password);
+      if (!isValid) {
+        throw CustomError.badRequest('Invalid password');
+      }
 
       return UserMapper.userEntityFromObject(user);
     } catch (error) {
